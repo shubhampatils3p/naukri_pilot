@@ -6,14 +6,13 @@ class NaukriConfig:
     password: str
     keyword: str
     location: str
-    max_jobs: int = 10
+    max_jobs: int = 5
 
-def get_default_config() -> NaukriConfig:
-    # You can hardcode tonight; later we can move to .env or CLI args
+def get_config(keyword: str, location: str, max_jobs: int) -> NaukriConfig:
     return NaukriConfig(
-        email="email",
-        password="password",
-        keyword="Angular Developer",
-        location="Pune",
-        max_jobs=10,
+        email="shubhampatils3p@gmail.com",
+        password="Pushprakash@1501",
+        keyword=keyword,
+        location=location,
+        max_jobs=max_jobs,
     )

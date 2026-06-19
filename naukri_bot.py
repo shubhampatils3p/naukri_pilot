@@ -79,53 +79,76 @@ class NaukriBot:
         print(f"Opening search URL: {search_url}")
         self.driver.get(search_url)
 
-        # Wait only for body to appear
-        self.wait.until(
-            EC.presence_of_element_located((By.TAG_NAME, "body"))
-        )
+        # Wait for body
+        self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         print("Search page loaded (not strictly waiting for cards)")
 
+        # Try to locate the search keyword box on the results page
+        try:
+            # Many Naukri result pages still expose these IDs on the search bar
+            key_input = self.wait.until(
+                EC.visibility_of_element_located((By.ID, "qsb-keyskill-sugg"))
+            )
+            loc_input = self.driver.find_element(By.ID, "qsb-location-sugg")
+
+            key_input.clear()
+            key_input.send_keys(self.config.keyword)
+            loc_input.clear()
+            loc_input.send_keys(self.config.location)
+            loc_input.send_keys(Keys.RETURN)
+            print("Triggered search via search bar")
+        except Exception:
+            print("Search bar not found or not clickable, relying on URL filters only")
+
     def get_job_cards(self):
+        # Use the wrapper class you pasted earlier
         cards = self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[data-job-id]"
+            "div.srp-jobtuple-wrapper"
         )
-        print(f"get_job_cards: found {len(cards)} cards with data-job-id")
+        print(f"get_job_cards: found {len(cards)} cards with srp-jobtuple-wrapper")
         return cards
 
     def apply_to_jobs(self):
         applied = 0
 
-        import time
-        time.sleep(3)
+        # Give the page a short moment to settle after navigation
+        time.sleep(2)
+
+        # First, wait for any job tuple wrapper to appear (outer container)
+        try:
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "div.srp-jobtuple-wrapper")
+                )
+            )
+            print("Job tuple wrappers detected by explicit wait")
+        except Exception:
+            print("Explicit wait for job tuple wrappers timed out, trying to read cards anyway")
 
         cards = self.get_job_cards()
         if not cards:
-            print("No job cards detected, stopping apply step")
+            print("No job cards detected even after wait, stopping apply step")
             return applied
 
         print(f"Found {len(cards)} cards")
 
-        for idx in range(len(cards)):
+        for idx, card in enumerate(cards):
             if applied >= self.config.max_jobs:
                 break
 
             try:
-                # Always ensure we are on the main search tab before using cards
-                self.driver.switch_to.window(self.driver.window_handles[0])
+                # Always work from main search tab before using card
+                if len(self.driver.window_handles) > 0:
+                    self.driver.switch_to.window(self.driver.window_handles[0])
 
-                # Re-fetch cards on the page (DOM may have changed)
-                cards = self.get_job_cards()
-                if idx >= len(cards):
-                    print(f"[{idx}] Card index out of range after refresh, stopping loop")
-                    break
-
-                card = cards[idx]
-
-                # 1) Open job details
+                # 1) Open job details from this card
                 job_link = card.find_element(By.CSS_SELECTOR, "a.title")
-                title_text = job_link.text.strip()
-                print(f"[{idx}] Opening job: {title_text}")
+                try:
+                    title_text = (job_link.text or "").strip()
+                except Exception:
+                    title_text = ""
+                print(f"[{idx}] Opening job: {title_text or '(no title)'}")
                 self.driver.execute_script("arguments[0].click();", job_link)
                 time.sleep(3)
 
@@ -161,17 +184,24 @@ class NaukriBot:
 
                 self._close_extra_tab()
             except Exception as e:
-                print(f"[{idx}] Error on card: {e}")
-                self._close_extra_tab()
+                print(f"[{idx}] Problematic job, skipping")
+                try:
+                    self._close_extra_tab()
+                except Exception:
+                    # Ignore tab closing errors too
+                    pass
 
         print(f"Applied to {applied} jobs out of requested {self.config.max_jobs}")
         return applied
-
+    
     def _close_extra_tab(self):
-        # Always go back to main search tab
-        while len(self.driver.window_handles) > 1:
-            self.driver.close()
-            self.driver.switch_to.window(self.driver.window_handles[0])
+        try:
+            # Always go back to main search tab
+            while len(self.driver.window_handles) > 1:
+                self.driver.close()
+                self.driver.switch_to.window(self.driver.window_handles[0])
+        except Exception as e:
+            print(f"_close_extra_tab: error while closing tabs: {e}")
 
     def quit(self):
         self.driver.quit()

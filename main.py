@@ -1,8 +1,8 @@
-from config import get_default_config
+from config import get_config
 from naukri_bot import NaukriBot
 
-def main():
-    config = get_default_config()
+def run_bot(keyword: str, location: str, max_jobs: int):
+    config = get_config(keyword, location, max_jobs)
     print("Using config:", config)
 
     bot = NaukriBot(config, headless=False)
@@ -15,6 +15,3 @@ def main():
         bot.apply_to_jobs()
     finally:
         bot.quit()
-
-if __name__ == "__main__":
-    main()
