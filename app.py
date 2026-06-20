@@ -1,14 +1,36 @@
 from flask import Flask, request, jsonify
 from threading import Thread
 from twilio.twiml.messaging_response import MessagingResponse
-
-from main import run_bot  # reuse your existing function
+from twilio.rest import Client
+from config import TWILIO_SID, TWILIO_TOKEN, WHATSAPP_FROM
+from main import run_bot 
 
 app = Flask(__name__)
+client = Client(TWILIO_SID, TWILIO_TOKEN)
 
-def run_bot_background(keyword, location, max_jobs):
+from twilio.rest import Client
+from config import TWILIO_SID, TWILIO_TOKEN, WHATSAPP_FROM
+
+client = Client(TWILIO_SID, TWILIO_TOKEN)
+
+def run_bot_background(keyword, location, max_jobs, to_number=None):
     try:
-        run_bot(keyword, location, max_jobs)
+        summary = run_bot(keyword, location, max_jobs)
+
+        if to_number:
+            applied = summary.get("applied", 0)
+            skipped = summary.get("skipped", 0)
+
+            body = (
+                f"Finished applying for {keyword} in {location}.\n\n"
+                f"Applied: {applied}\nSkipped: {skipped}"
+            )
+
+            client.messages.create(
+                from_=WHATSAPP_FROM,  # "whatsapp:+14155238886"
+                to=to_number,         # e.g. "whatsapp:+919403851928"
+                body=body,
+            )
     except Exception as e:
         print(f"Background run_bot error: {e}")
 
@@ -88,9 +110,7 @@ def command():
 
 @app.route("/whatsapp-test", methods=["POST"])
 def whatsapp_test():
-    # Twilio sends form-encoded data
     text = request.form.get("Body", "")
-
     resp = MessagingResponse()
 
     parsed = parse_apply_command(text)
@@ -100,8 +120,8 @@ def whatsapp_test():
 
     keyword, location, max_jobs = parsed
 
-    # Start bot in background
-    t = Thread(target=run_bot_background, args=(keyword, location, max_jobs), daemon=True)
+    from_number = request.form.get("From")
+    t = Thread(target=run_bot_background, args=(keyword, location, max_jobs, from_number), daemon=True,)
     t.start()
 
     resp.message(f"Started applying for {keyword} in {location} (max {max_jobs} jobs).")

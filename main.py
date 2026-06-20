@@ -12,6 +12,7 @@ def run_bot(keyword: str, location: str, max_jobs: int):
         print("Logged in, starting search...")
         bot.search_jobs()
         print("Search loaded, applying...")
-        bot.apply_to_jobs()
+        summary = bot.apply_to_jobs()
+        return summary
     finally:
         bot.quit()
