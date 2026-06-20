@@ -71,14 +71,19 @@ class NaukriBot:
         print("Logged in (popup closed)")
 
     def search_jobs(self):
+        time.sleep(3)
+        
         base = "https://www.naukri.com"
         keyword_slug = "-".join(self.config.keyword.split()).lower()
         location_slug = "-".join(self.config.location.split()).lower()
         search_url = f"{base}/{keyword_slug}-jobs-in-{location_slug}"
 
         print(f"Opening search URL: {search_url}")
+        print("Before URL:", search_url)
         self.driver.get(search_url)
 
+        print("After URL:", self.driver.current_url)
+        print("Page Title:", self.driver.title)
         # Wait for body
         self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         print("Search page loaded (not strictly waiting for cards)")

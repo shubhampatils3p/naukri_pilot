@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from threading import Thread
+from twilio.twiml.messaging_response import MessagingResponse
 
 from main import run_bot  # reuse your existing function
 
@@ -12,11 +13,6 @@ def run_bot_background(keyword, location, max_jobs):
         print(f"Background run_bot error: {e}")
 
 def parse_apply_command(text: str):
-    """
-    Parse commands like:
-      'Apply for Angular Developer Pune 10'
-    into (keyword, location, max_jobs)
-    """
     if not text:
         return None
 
@@ -26,24 +22,18 @@ def parse_apply_command(text: str):
     if not lower.startswith("apply for "):
         return None
 
-    # Remove the leading 'apply for '
     body = text[len("apply for "):].strip()
     parts = body.split()
 
     if len(parts) < 3:
-        # Need at least: keyword word(s), location, max_jobs
         return None
 
-    # Last token should be max_jobs
     try:
         max_jobs = int(parts[-1])
     except ValueError:
         return None
 
-    # Second last token = location (single word for now)
     location = parts[-2]
-
-    # Everything before that = keyword
     keyword = " ".join(parts[:-2]).strip()
 
     if not keyword or not location:
@@ -95,6 +85,27 @@ def command():
         "location": location,
         "max_jobs": max_jobs
     }), 202
+
+@app.route("/whatsapp-test", methods=["POST"])
+def whatsapp_test():
+    # Twilio sends form-encoded data
+    text = request.form.get("Body", "")
+
+    resp = MessagingResponse()
+
+    parsed = parse_apply_command(text)
+    if not parsed:
+        resp.message("Invalid command. Use: 'Apply for <keyword> <location> <max_jobs>'")
+        return str(resp)
+
+    keyword, location, max_jobs = parsed
+
+    # Start bot in background
+    t = Thread(target=run_bot_background, args=(keyword, location, max_jobs), daemon=True)
+    t.start()
+
+    resp.message(f"Started applying for {keyword} in {location} (max {max_jobs} jobs).")
+    return str(resp)
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
