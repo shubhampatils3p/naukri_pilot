@@ -10,6 +10,7 @@ TWILIO_TOKEN = os.getenv("TWILIO_TOKEN")
 WHATSAPP_FROM = os.getenv("WHATSAPP_FROM")
 EMAIL = os.getenv("EMAIL")
 PASSWORD = os.getenv("PASSWORD")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 
 @dataclass
